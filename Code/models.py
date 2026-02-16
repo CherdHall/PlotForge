@@ -11,6 +11,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from extensions import db   # ← Changed to import from extensions.py (breaks circular reference)
 
+###################################################
+################# Data Tables #####################
+###################################################
+
 # ────────────────────────────────────────────────
 # USER MODEL
 # Stores user accounts. Core for authentication, ownership, and contribution tracking.
@@ -79,13 +83,23 @@ class Thread(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.String(20), default='open')
     max_members = db.Column(db.Integer, default=15)
-
-    boundaries = db.Column(db.Text, default='{}')
+    genre_id          = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
+    political_id      = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
+    violence_id       = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
+    sex_id            = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
+    style_id          = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
+    audience_id       = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
 
     leader = db.relationship('User', back_populates='owned_threads', foreign_keys=[leader_id])
     memberships = db.relationship('GroupMembership', back_populates='thread', cascade='all, delete-orphan')
     posts = db.relationship('Post', back_populates='thread', cascade='all, delete-orphan')
     documents = db.relationship('Document', back_populates='thread', cascade='all, delete-orphan')
+    genre     = db.relationship('ListBoundaryOption', foreign_keys=[genre_id])
+    political = db.relationship('ListBoundaryOption', foreign_keys=[political_id])
+    violence  = db.relationship('ListBoundaryOption', foreign_keys=[violence_id])
+    sex       = db.relationship('ListBoundaryOption', foreign_keys=[sex_id])
+    style     = db.relationship('ListBoundaryOption', foreign_keys=[style_id])
+    audience  = db.relationship('ListBoundaryOption', foreign_keys=[audience_id])
 
     def get_boundaries(self):
         try:
@@ -155,6 +169,29 @@ class Document(db.Model):
 
     def __repr__(self):
         return f'<Document {self.title} type={self.type} thread={self.thread_id}>'
+
+###################################################
+################# List Tables #####################
+###################################################
+
+# ────────────────────────────────────────────────
+# Boundary Options (one table, boolean flags per category)
+# ────────────────────────────────────────────────
+class ListBoundaryOption(db.Model):
+    __tablename__ = 'list_boundary_options'
+
+    id = db.Column(db.Integer, primary_key=True)
+    option_text = db.Column(db.String(100), nullable=False, unique=True)
+    for_genre     = db.Column(db.Boolean, default=False)
+    for_political = db.Column(db.Boolean, default=False)
+    for_violence  = db.Column(db.Boolean, default=False)
+    for_sex       = db.Column(db.Boolean, default=False)
+    for_style     = db.Column(db.Boolean, default=False)
+    for_audience  = db.Column(db.Boolean, default=False)
+    sort_order    = db.Column(db.Integer, default=0)   # controls dropdown order
+
+    def __repr__(self):
+        return f'<BoundaryOption {self.option_text}>'
 
 # ────────────────────────────────────────────────
 # Future models

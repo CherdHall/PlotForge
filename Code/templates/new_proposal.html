@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}New Story Proposal{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Create New Story Proposal</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <!-- Title -->
+                        <div class="mb-4">
+                            <label for="title" class="form-label fw-bold">Proposal Title <span class="text-danger">*</span></label>
+                            <input type="text" name="title" id="title" class="form-control" required 
+                                   placeholder="e.g. The Last Ember of Eldoria" autofocus>
+                        </div>
+
+                        <!-- Description / Pitch -->
+                        <div class="mb-4">
+                            <label for="description" class="form-label fw-bold">Initial Description / Pitch</label>
+                            <textarea name="description" id="description" class="form-control" rows="6"
+                                      placeholder="Describe your story idea, genre, tone, key themes, main conflict..."></textarea>
+                            <small class="form-text text-muted">This will appear as the first post in the proposal thread.</small>
+                        </div>
+
+                        <!-- Max Members -->
+                        <div class="mb-4">
+                            <label for="max_members" class="form-label fw-bold">Maximum Group Size</label>
+                            <input type="number" name="max_members" id="max_members" class="form-control" 
+                                   min="2" max="15" value="10" required>
+                            <small class="form-text text-muted">Recommended: 4–10 for effective collaboration (max 15).</small>
+                        </div>
+
+                        <!-- Boundaries – Dropdowns using IDs -->
+                        <h5 class="mt-4 mb-3">Content & Style Boundaries</h5>
+                        <p class="text-muted small mb-4">Select the level or style that best fits your vision. These help attract the right collaborators.</p>
+
+                        <div class="row g-3">
+                            <!-- Genre -->
+                            <div class="col-md-6">
+                                <label for="genre_id" class="form-label">Genre</label>
+                                <select name="genre_id" id="genre_id" class="form-select">
+                                    <option value="">— Not specified —</option>
+                                    {% for opt in genre_options %}
+                                        <option value="{{ opt.id }}">{{ opt.option_text }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Political Content -->
+                            <div class="col-md-6">
+                                <label for="political_id" class="form-label">Political Content</label>
+                                <select name="political_id" id="political_id" class="form-select">
+                                    <option value="">— Not specified —</option>
+                                    {% for opt in political_options %}
+                                        <option value="{{ opt.id }}">{{ opt.option_text }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Violence -->
+                            <div class="col-md-6">
+                                <label for="violence_id" class="form-label">Violence Level</label>
+                                <select name="violence_id" id="violence_id" class="form-select">
+                                    <option value="">— Not specified —</option>
+                                    {% for opt in violence_options %}
+                                        <option value="{{ opt.id }}">{{ opt.option_text }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Sex / Nudity -->
+                            <div class="col-md-6">
+                                <label for="sex_id" class="form-label">Sex / Nudity Level</label>
+                                <select name="sex_id" id="sex_id" class="form-select">
+                                    <option value="">— Not specified —</option>
+                                    {% for opt in sex_options %}
+                                        <option value="{{ opt.id }}">{{ opt.option_text }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Style -->
+                            <div class="col-md-6">
+                                <label for="style_id" class="form-label">Writing Style</label>
+                                <select name="style_id" id="style_id" class="form-select">
+                                    <option value="">— Not specified —</option>
+                                    {% for opt in style_options %}
+                                        <option value="{{ opt.id }}">{{ opt.option_text }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Audience -->
+                            <div class="col-md-6">
+                                <label for="audience_id" class="form-label">Target Audience</label>
+                                <select name="audience_id" id="audience_id" class="form-select">
+                                    <option value="">— Not specified —</option>
+                                    {% for opt in audience_options %}
+                                        <option value="{{ opt.id }}">{{ opt.option_text }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Submit -->
+                        <div class="d-grid mt-5">
+                            <button type="submit" class="btn btn-primary btn-lg">Create Proposal</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

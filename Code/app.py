@@ -3,11 +3,13 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from datetime import datetime
 import os
+import json
 from werkzeug.security import check_password_hash   # actually already used in model
+from flask_login import login_user, logout_user, login_required, current_user
 
 # ─── Extensions ───────────────────────────────────────────────────────────────
 from extensions import db, login_manager
-from flask_login import login_user, logout_user, login_required, current_user
+from models import Thread, Post, ListBoundaryOption
 
 app = Flask(__name__)
 
@@ -25,7 +27,7 @@ login_manager.login_message = 'Please log in to access this page.'
 login_manager.login_message_category = 'info'
 
 # ─── User loader (required by Flask-Login) ────────────────────────────────────
-from models import User
+from models import User #RJH- Does this need to be done here? Cleaner up top)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -100,6 +102,61 @@ def logout():
 @login_required
 def dashboard():
     return render_template('dashboard.html', user=current_user)
+
+# ─── New Proposal Thread Creation ────────────────────────────────────────────
+@app.route('/proposals/new', methods=['GET', 'POST'])
+@login_required
+def new_proposal():
+    if request.method == 'POST':
+        title = request.form.get('title')
+        description = request.form.get('description')
+        max_members = request.form.get('max_members', type=int, default=15)
+
+        if not title:
+            flash('Title is required.', 'danger')
+            return redirect(url_for('new_proposal'))
+
+        thread = Thread(
+            title=title,
+            is_proposal=True,
+            leader_id=current_user.id,
+            max_members=max_members,
+            status='open',
+            # Get boundary values
+            genre_id          = request.form.get('genre_id', type=int),
+            political_id      = request.form.get('political_id', type=int),
+            violence_id       = request.form.get('violence_id', type=int),
+            sex_id            = request.form.get('sex_id', type=int),
+            style_id          = request.form.get('style_id', type=int),
+            audience_id       = request.form.get('audience_id', type=int)
+        )
+
+        db.session.add(thread)
+        db.session.commit()
+
+        if description:
+            post = Post(thread_id=thread.id, user_id=current_user.id, content=description)
+            db.session.add(post)
+            db.session.commit()
+
+        flash('Proposal created successfully!', 'success')
+        return redirect(url_for('dashboard'))
+
+    # GET: load options for each dropdown
+    genre_options     = ListBoundaryOption.query.filter_by(for_genre=True).order_by(ListBoundaryOption.sort_order).all()
+    political_options = ListBoundaryOption.query.filter_by(for_political=True).order_by(ListBoundaryOption.sort_order).all()
+    violence_options  = ListBoundaryOption.query.filter_by(for_violence=True).order_by(ListBoundaryOption.sort_order).all()
+    sex_options       = ListBoundaryOption.query.filter_by(for_sex=True).order_by(ListBoundaryOption.sort_order).all()
+    style_options     = ListBoundaryOption.query.filter_by(for_style=True).order_by(ListBoundaryOption.sort_order).all()
+    audience_options  = ListBoundaryOption.query.filter_by(for_audience=True).order_by(ListBoundaryOption.sort_order).all()
+
+    return render_template('new_proposal.html',
+                           genre_options=genre_options,
+                           political_options=political_options,
+                           violence_options=violence_options,
+                           sex_options=sex_options,
+                           style_options=style_options,
+                           audience_options=audience_options)
 
 # ─── Create tables & run ─────────────────────────────────────────────────────
 if __name__ == '__main__':
