@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@ckeditor/ckeditor5-build-classic": "^41.4.2",
+    "@ckeditor/ckeditor5-collaboration-core": "^47.5.0",
+    "@ckeditor/ckeditor5-track-changes": "^47.5.0"
+  }
+}

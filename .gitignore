@@ -1,0 +1,21 @@
+# Python / Flask
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db                # ← protects database.db
+*.sqlite3
+
+# Node.js
+node_modules/
+
+# Environment / secrets
+.env
+*.env.*
+
+# Temporary / editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
