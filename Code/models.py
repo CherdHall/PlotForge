@@ -70,70 +70,6 @@ class GroupMembership(db.Model):
         return f'<Membership user={self.user_id} thread={self.thread_id} role={self.role}>'
 
 # ────────────────────────────────────────────────
-# THREAD MODEL
-# Represents public proposal threads (recruitment) and private group workspaces.
-# ────────────────────────────────────────────────
-class Thread(db.Model):
-    __tablename__ = 'threads'
-
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    is_proposal = db.Column(db.Boolean, default=True)
-    leader_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    status = db.Column(db.String(20), default='open')
-    max_members = db.Column(db.Integer, default=15)
-    genre_id          = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
-    political_id      = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
-    violence_id       = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
-    sex_id            = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
-    style_id          = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
-    audience_id       = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
-
-    leader = db.relationship('User', back_populates='owned_threads', foreign_keys=[leader_id])
-    memberships = db.relationship('GroupMembership', back_populates='thread', cascade='all, delete-orphan')
-    posts = db.relationship('Post', back_populates='thread', cascade='all, delete-orphan')
-    documents = db.relationship('Document', back_populates='thread', cascade='all, delete-orphan')
-    genre     = db.relationship('ListBoundaryOption', foreign_keys=[genre_id])
-    political = db.relationship('ListBoundaryOption', foreign_keys=[political_id])
-    violence  = db.relationship('ListBoundaryOption', foreign_keys=[violence_id])
-    sex       = db.relationship('ListBoundaryOption', foreign_keys=[sex_id])
-    style     = db.relationship('ListBoundaryOption', foreign_keys=[style_id])
-    audience  = db.relationship('ListBoundaryOption', foreign_keys=[audience_id])
-
-    def get_boundaries(self):
-        try:
-            return json.loads(self.boundaries)
-        except:
-            return {}
-
-    def set_boundaries(self, data_dict):
-        self.boundaries = json.dumps(data_dict)
-
-    def __repr__(self):
-        return f'<Thread {self.title} is_proposal={self.is_proposal}>'
-
-# ────────────────────────────────────────────────
-# POST MODEL
-# Replies / comments inside any thread (public or private).
-# ────────────────────────────────────────────────
-class Post(db.Model):
-    __tablename__ = 'posts'
-
-    id = db.Column(db.Integer, primary_key=True)
-    thread_id = db.Column(db.Integer, db.ForeignKey('threads.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=True)
-
-    thread = db.relationship('Thread', back_populates='posts')
-    author = db.relationship('User')
-
-    def __repr__(self):
-        return f'<Post by user {self.user_id} in thread {self.thread_id}>'
-
-# ────────────────────────────────────────────────
 # DOCUMENT MODEL
 # Editable rich-text documents: Story Canon, Chapter Text, Chapter Canon, custom docs.
 # Each is associated with a thread (group/workspace).
@@ -169,6 +105,70 @@ class Document(db.Model):
 
     def __repr__(self):
         return f'<Document {self.title} type={self.type} thread={self.thread_id}>'
+
+# ────────────────────────────────────────────────
+# THREAD MODEL
+# Represents public proposal threads (recruitment) and private group workspaces.
+# ────────────────────────────────────────────────
+class Thread(db.Model):
+    __tablename__ = 'threads'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    is_proposal = db.Column(db.Boolean, default=True)
+    leader_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(20), default='open')
+    max_members = db.Column(db.Integer, default=15)
+    genre_id          = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
+    political_id      = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
+    violence_id       = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
+    sex_id            = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
+    style_id          = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
+    audience_id       = db.Column(db.Integer, db.ForeignKey('list_boundary_options.id'), nullable=True)
+
+    leader = db.relationship('User', back_populates='owned_threads', foreign_keys=[leader_id])
+    memberships = db.relationship('GroupMembership', back_populates='thread', cascade='all, delete-orphan')
+    posts = db.relationship('Post', back_populates='thread', cascade='all, delete-orphan', lazy='dynamic')
+    documents = db.relationship('Document', back_populates='thread', cascade='all, delete-orphan')
+    genre     = db.relationship('ListBoundaryOption', foreign_keys=[genre_id])
+    political = db.relationship('ListBoundaryOption', foreign_keys=[political_id])
+    violence  = db.relationship('ListBoundaryOption', foreign_keys=[violence_id])
+    sex       = db.relationship('ListBoundaryOption', foreign_keys=[sex_id])
+    style     = db.relationship('ListBoundaryOption', foreign_keys=[style_id])
+    audience  = db.relationship('ListBoundaryOption', foreign_keys=[audience_id])
+
+    def get_boundaries(self):
+        try:
+            return json.loads(self.boundaries)
+        except:
+            return {}
+
+    def set_boundaries(self, data_dict):
+        self.boundaries = json.dumps(data_dict)
+
+    def __repr__(self):
+        return f'<Thread {self.title} is_proposal={self.is_proposal}>'
+
+# ────────────────────────────────────────────────
+# POST MODEL
+# Replies / comments inside any thread (public or private).
+# ────────────────────────────────────────────────
+class Post(db.Model):
+    __tablename__ = 'posts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    thread_id = db.Column(db.Integer, db.ForeignKey('threads.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=True)
+
+    thread = db.relationship('Thread', back_populates='posts')
+    author = db.relationship('User', backref='posts')
+
+    def __repr__(self):
+        return f'<Post by user {self.user_id} in thread {self.thread_id}>'
 
 ###################################################
 ################# List Tables #####################

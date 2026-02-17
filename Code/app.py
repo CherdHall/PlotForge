@@ -1,6 +1,6 @@
 # app.py
 
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, abort
 from datetime import datetime
 import os
 import json
@@ -9,7 +9,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 
 # ─── Extensions ───────────────────────────────────────────────────────────────
 from extensions import db, login_manager
-from models import Thread, Post, ListBoundaryOption
+from models import Thread, Post, ListBoundaryOption, GroupMembership
 
 app = Flask(__name__)
 
@@ -101,7 +101,22 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    return render_template('dashboard.html', user=current_user)
+    print(f"Current user ID: {current_user.id}")
+    print(f"Current user username: {current_user.username}")
+
+    user_proposals = Thread.query.filter_by(
+        leader_id=current_user.id,
+        is_proposal=True,
+        status='open'
+    ).order_by(Thread.created_at.desc()).all()
+
+    print(f"Found {len(user_proposals)} open proposals for this user")
+    for p in user_proposals:
+        print(f" - Proposal ID {p.id}: {p.title} (status: {p.status}, is_proposal: {p.is_proposal})")
+
+    return render_template('dashboard.html',
+                           proposals=user_proposals,
+                           user=current_user)     # ← this line fixes the error
 
 # ─── New Proposal Thread Creation ────────────────────────────────────────────
 @app.route('/proposals/new', methods=['GET', 'POST'])
@@ -134,11 +149,19 @@ def new_proposal():
         db.session.add(thread)
         db.session.commit()
 
+        leader_membership = GroupMembership(
+        user_id=current_user.id,
+        thread_id=thread.id,
+        role='leader'                  # or 'member' if you prefer uniform roles
+        )
+        db.session.add(leader_membership)
+        db.session.commit()
+
         if description:
             post = Post(thread_id=thread.id, user_id=current_user.id, content=description)
             db.session.add(post)
             db.session.commit()
-
+        
         flash('Proposal created successfully!', 'success')
         return redirect(url_for('dashboard'))
 
@@ -157,6 +180,124 @@ def new_proposal():
                            sex_options=sex_options,
                            style_options=style_options,
                            audience_options=audience_options)
+
+#Pasted in this chunk down, check for duplicates
+@app.route('/proposals')
+def proposals():
+    open_proposals = Thread.query.filter_by(is_proposal=True, status='open') \
+                                 .order_by(Thread.created_at.desc()).all()
+    return render_template('proposals.html', proposals=open_proposals)
+
+
+@app.route('/threads/<int:thread_id>')
+def thread_detail(thread_id):
+    thread = Thread.query.get_or_404(thread_id)
+    
+    if not thread.is_proposal and not current_user.is_authenticated:
+        abort(403)  # private → require login later
+
+    # Load posts ordered
+    posts = thread.posts.order_by(Post.created_at).all()
+    
+    # Check if current user can join/finalize
+    is_leader = current_user.is_authenticated and thread.leader_id == current_user.id
+    is_member = current_user.is_authenticated and GroupMembership.query.filter_by(user_id=current_user.id, thread_id=thread.id).first() is not None
+    
+    return render_template('thread.html', 
+                           thread=thread, 
+                           posts=posts, 
+                           is_leader=is_leader, 
+                           is_member=is_member)
+
+@app.route('/threads/<int:thread_id>/post', methods=['POST'])
+@login_required
+def post_in_thread(thread_id):
+    thread = Thread.query.get_or_404(thread_id)
+    
+    # Check membership
+    membership = GroupMembership.query.filter_by(
+        user_id=current_user.id,
+        thread_id=thread.id
+    ).first()
+    
+    if not membership:
+        flash('You must be a member to post.', 'danger')
+        return redirect(url_for('thread_detail', thread_id=thread_id))
+    
+    content = request.form.get('content', '').strip()
+    if not content:
+        flash('Post cannot be empty.', 'danger')
+        return redirect(url_for('thread_detail', thread_id=thread_id))
+    
+    new_post = Post(
+        thread_id=thread.id,
+        user_id=current_user.id,
+        content=content
+    )
+    db.session.add(new_post)
+    db.session.commit()
+    
+    flash('Posted!', 'success')
+    return redirect(url_for('thread_detail', thread_id=thread_id))
+
+@app.route('/threads/<int:thread_id>/join', methods=['POST'])
+@login_required
+def join_thread(thread_id):
+    thread = Thread.query.get_or_404(thread_id)
+    if not thread.is_proposal or thread.status != 'open':
+        flash('Cannot join this thread.', 'danger')
+        return redirect(url_for('thread_detail', thread_id=thread_id))
+    
+    if GroupMembership.query.filter_by(user_id=current_user.id, thread_id=thread.id).first():
+        flash('You are already a member.', 'info')
+        return redirect(url_for('thread_detail', thread_id=thread_id))
+    
+    if db.session.query(GroupMembership).filter_by(thread_id=thread.id).count() >= thread.max_members:
+        flash('Group is full.', 'danger')
+        return redirect(url_for('thread_detail', thread_id=thread_id))
+    
+    membership = GroupMembership(user_id=current_user.id, thread_id=thread.id, role='member')
+    db.session.add(membership)
+    db.session.commit()
+    
+    flash('Joined the proposal!', 'success')
+    return redirect(url_for('thread_detail', thread_id=thread_id))
+
+
+@app.route('/threads/<int:thread_id>/finalize', methods=['POST'])
+@login_required
+def finalize_thread(thread_id):
+    thread = Thread.query.get_or_404(thread_id)
+    if thread.leader_id != current_user.id:
+        abort(403)
+    
+    if thread.status != 'open':
+        flash('Already finalized.', 'info')
+        return redirect(url_for('thread_detail', thread_id=thread_id))
+    
+    thread.status = 'closed'
+    thread.is_proposal = False  # now private workspace
+    
+    # Stub: create initial documents (expand later)
+    canon = Document(thread_id=thread.id, title='Story Canon', type='story_canon', content='Initial canon summary...')
+    chapter1 = Document(thread_id=thread.id, title='Chapter 1 Text', type='chapter_text', chapter_num=1, content='Start writing here...')
+    db.session.add_all([canon, chapter1])
+    
+    db.session.commit()
+    
+    flash('Proposal finalized — private workspace created!', 'success')
+    return redirect(url_for('thread_detail', thread_id=thread_id))
+
+
+# CKEditor test page (minimal)
+@app.route('/test-editor', methods=['GET', 'POST'])
+def test_editor():
+    if request.method == 'POST':
+        content = request.form.get('editor_content', '')
+        # Later: save to a Document row
+        return f"<h1>Saved content:</h1><div>{content}</div>"
+    
+    return render_template('test_editor.html')
 
 # ─── Create tables & run ─────────────────────────────────────────────────────
 if __name__ == '__main__':
