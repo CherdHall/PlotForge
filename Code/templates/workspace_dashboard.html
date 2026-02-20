@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Workspace: {{ workspace.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Workspace: {{ workspace.title }}</h2>
+    <p class="lead text-muted">Private group collaboration area</p>
+
+    <div class="row g-4">
+        <!-- Threads section -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Threads</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for t in sub_threads %}
+                        <a href="{{ url_for('thread_detail', thread_id=t.id) }}" 
+                           class="list-group-item list-group-item-action">
+                            {{ t.title }}
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Documents / Story Canon section -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Story Canon & Documents</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for doc in documents %}
+                        <div class="list-group-item">
+                            <strong>{{ doc.title }}</strong>
+                            {% if doc.associated_thread_id %}
+                                <small class="text-muted"> • linked to {{ doc.associated_thread.title }}</small>
+                            {% endif %}
+                            <!-- Later: edit link / preview -->
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Later: leader-only controls -->
+    {% if current_user.id == workspace.leader_id %}
+        <div class="mt-4">
+            <small class="text-muted">Leader controls coming soon: add thread, add document, adjust size, etc.</small>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

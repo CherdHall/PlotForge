@@ -131,55 +131,123 @@ def new_proposal():
             flash('Title is required.', 'danger')
             return redirect(url_for('new_proposal'))
 
-        thread = Thread(
+        # Create public recruitment thread (proposal)
+        recruitment = Thread(
             title=title,
             is_proposal=True,
             leader_id=current_user.id,
             max_members=max_members,
             status='open',
-            # Get boundary values
-            genre_id          = request.form.get('genre_id', type=int),
-            political_id      = request.form.get('political_id', type=int),
-            violence_id       = request.form.get('violence_id', type=int),
-            sex_id            = request.form.get('sex_id', type=int),
-            style_id          = request.form.get('style_id', type=int),
-            audience_id       = request.form.get('audience_id', type=int)
+            boundary_genre=request.form.get('boundary_genre'),
+            boundary_political=request.form.get('boundary_political'),
+            boundary_violence=request.form.get('boundary_violence'),
+            boundary_sex=request.form.get('boundary_sex'),
+            boundary_style=request.form.get('boundary_style'),
+            boundary_audience=request.form.get('boundary_audience')
         )
-
-        db.session.add(thread)
+        db.session.add(recruitment)
         db.session.commit()
 
-        leader_membership = GroupMembership(
-        user_id=current_user.id,
-        thread_id=thread.id,
-        role='leader'                  # or 'member' if you prefer uniform roles
-        )
-        db.session.add(leader_membership)
+        # Auto-add leader to recruitment thread
+        db.session.add(GroupMembership(
+            user_id=current_user.id,
+            thread_id=recruitment.id,
+            role='leader'
+        ))
         db.session.commit()
 
+        # Create private workspace immediately
+        workspace = Thread(
+            title=f"Workspace: {title}",
+            is_proposal=False,
+            is_private_workspace=True,
+            leader_id=current_user.id,
+            max_members=max_members,
+            status='active',
+            boundary_genre=recruitment.boundary_genre,
+            boundary_political=recruitment.boundary_political,
+            boundary_violence=recruitment.boundary_violence,
+            boundary_sex=recruitment.boundary_sex,
+            boundary_style=recruitment.boundary_style,
+            boundary_audience=recruitment.boundary_audience
+        )
+        db.session.add(workspace)
+        db.session.commit()
+
+        # Auto-add leader to workspace
+        db.session.add(GroupMembership(
+            user_id=current_user.id,
+            thread_id=workspace.id,
+            role='leader'
+        ))
+        db.session.commit()
+
+        # Create default sub-threads in workspace
+        social_chat = Thread(
+            title="Social Chat (Not Book Related)",
+            is_proposal=False,
+            parent_thread_id=workspace.id,
+            leader_id=current_user.id,
+            status='active'
+        )
+        overall_arc = Thread(
+            title="Overall Story Arc (Big Picture)",
+            is_proposal=False,
+            parent_thread_id=workspace.id,
+            leader_id=current_user.id,
+            status='active'
+        )
+        chapter_1 = Thread(
+            title="Chapter 1",
+            is_proposal=False,
+            parent_thread_id=workspace.id,
+            leader_id=current_user.id,
+            status='active'
+        )
+        db.session.add_all([social_chat, overall_arc, chapter_1])
+        db.session.commit()
+
+        # Create default documents in workspace
+        overall_doc = Document(
+            thread_id=workspace.id,
+            title="Overall Story Arc",
+            type='story_arc',
+            content='[Initial big-picture elements – edit here]',
+            associated_thread_id=overall_arc.id
+        )
+        ch1_arc_doc = Document(
+            thread_id=workspace.id,
+            title="Chapter 1 Story Arc",
+            type='chapter_arc',
+            chapter_num=1,
+            content='[Chapter 1 outline – edit here]',
+            associated_thread_id=chapter_1.id
+        )
+        ch1_text_doc = Document(
+            thread_id=workspace.id,
+            title="Chapter 1 Text",
+            type='chapter_text',
+            chapter_num=1,
+            content='[Start writing the actual chapter here]',
+            associated_thread_id=chapter_1.id
+        )
+        db.session.add_all([overall_doc, ch1_arc_doc, ch1_text_doc])
+        db.session.commit()
+
+        # Optional: initial post in recruitment thread
         if description:
-            post = Post(thread_id=thread.id, user_id=current_user.id, content=description)
-            db.session.add(post)
+            db.session.add(Post(
+                thread_id=recruitment.id,
+                user_id=current_user.id,
+                content=description
+            ))
             db.session.commit()
-        
-        flash('Proposal created successfully!', 'success')
-        return redirect(url_for('dashboard'))
 
-    # GET: load options for each dropdown
-    genre_options     = ListBoundaryOption.query.filter_by(for_genre=True).order_by(ListBoundaryOption.sort_order).all()
-    political_options = ListBoundaryOption.query.filter_by(for_political=True).order_by(ListBoundaryOption.sort_order).all()
-    violence_options  = ListBoundaryOption.query.filter_by(for_violence=True).order_by(ListBoundaryOption.sort_order).all()
-    sex_options       = ListBoundaryOption.query.filter_by(for_sex=True).order_by(ListBoundaryOption.sort_order).all()
-    style_options     = ListBoundaryOption.query.filter_by(for_style=True).order_by(ListBoundaryOption.sort_order).all()
-    audience_options  = ListBoundaryOption.query.filter_by(for_audience=True).order_by(ListBoundaryOption.sort_order).all()
+        flash('Proposal created! Private workspace ready — start collaborating.', 'success')
+        return redirect(url_for('workspace_dashboard', workspace_id=workspace.id))
 
-    return render_template('new_proposal.html',
-                           genre_options=genre_options,
-                           political_options=political_options,
-                           violence_options=violence_options,
-                           sex_options=sex_options,
-                           style_options=style_options,
-                           audience_options=audience_options)
+    # GET unchanged
+    # ... (genre_options etc.)
 
 #Pasted in this chunk down, check for duplicates
 @app.route('/proposals')
@@ -252,31 +320,6 @@ def add_member(thread_id, user_id):
     flash('Member added to group!', 'success')
     return redirect(url_for('thread_detail', thread_id=thread_id))
 
-@app.route('/threads/<int:thread_id>/finalize', methods=['POST'])
-@login_required
-def finalize_thread(thread_id):
-    thread = Thread.query.get_or_404(thread_id)
-    if thread.leader_id != current_user.id:
-        abort(403)
-    
-    if thread.status != 'open':
-        flash('Already finalized.', 'info')
-        return redirect(url_for('thread_detail', thread_id=thread_id))
-    
-    thread.status = 'closed'
-    thread.is_proposal = False  # now private workspace
-    
-    # Stub: create initial documents (expand later)
-    canon = Document(thread_id=thread.id, title='Story Canon', type='story_canon', content='Initial canon summary...')
-    chapter1 = Document(thread_id=thread.id, title='Chapter 1 Text', type='chapter_text', chapter_num=1, content='Start writing here...')
-    db.session.add_all([canon, chapter1])
-    
-    db.session.commit()
-    
-    flash('Proposal finalized — private workspace created!', 'success')
-    return redirect(url_for('thread_detail', thread_id=thread_id))
-
-
 # CKEditor test page (minimal)
 @app.route('/test-editor', methods=['GET', 'POST'])
 def test_editor():
@@ -286,6 +329,37 @@ def test_editor():
         return f"<h1>Saved content:</h1><div>{content}</div>"
     
     return render_template('test_editor.html')
+
+@app.route('/workspace/<int:workspace_id>')
+@login_required
+def workspace_dashboard(workspace_id):
+    workspace = Thread.query.get_or_404(workspace_id)
+    if not workspace.is_private_workspace:
+        abort(404)
+
+    membership = GroupMembership.query.filter_by(
+        user_id=current_user.id, thread_id=workspace.id
+    ).first()
+    if not membership:
+        abort(403)
+
+    sub_threads = Thread.query.filter_by(parent_thread_id=workspace.id).all()
+    documents = Document.query.filter_by(thread_id=workspace.id).order_by(Document.title).all()
+
+    return render_template('workspace_dashboard.html',
+                           workspace=workspace,
+                           sub_threads=sub_threads,
+                           documents=documents)
+
+@app.route('/my-workspaces')
+@login_required
+def my_workspaces():
+    workspaces = Thread.query.join(GroupMembership).filter(
+        GroupMembership.user_id == current_user.id,
+        Thread.is_private_workspace == True,
+        Thread.status == 'active'
+    ).order_by(Thread.created_at.desc()).all()
+    return render_template('my_workspaces.html', workspaces=workspaces)
 
 # ─── Create tables & run ─────────────────────────────────────────────────────
 if __name__ == '__main__':

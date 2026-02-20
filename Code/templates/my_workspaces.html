@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}My Workspaces{% endblock %}
+{% block content %}
+<h2>My Private Workspaces</h2>
+{% if workspaces %}
+    <div class="list-group">
+        {% for ws in workspaces %}
+            <a href="{{ url_for('workspace_dashboard', workspace_id=ws.id) }}" 
+               class="list-group-item list-group-item-action">
+                {{ ws.title }} <small>({{ ws.memberships|length }} members)</small>
+            </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <p>You are not in any private workspaces yet.</p>
+{% endif %}
+{% endblock %}

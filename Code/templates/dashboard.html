@@ -27,3 +27,17 @@
   <p>No open proposals yet. Create one!</p>
 {% endif %}
 {% endblock %}
+
+<h4>Your Workspaces</h4>
+{% set workspaces = current_user.owned_threads | selectattr('is_private_workspace', 'equalto', true) | list %}
+{% if workspaces %}
+    <div class="list-group">
+        {% for ws in workspaces %}
+            <a href="{{ url_for('workspace_dashboard', workspace_id=ws.id) }}" class="list-group-item">
+                {{ ws.title }}
+            </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <p>No private workspaces yet.</p>
+{% endif %}
