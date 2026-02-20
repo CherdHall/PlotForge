@@ -214,16 +214,6 @@ def thread_detail(thread_id):
 def post_in_thread(thread_id):
     thread = Thread.query.get_or_404(thread_id)
     
-    # Check membership
-    membership = GroupMembership.query.filter_by(
-        user_id=current_user.id,
-        thread_id=thread.id
-    ).first()
-    
-    if not membership:
-        flash('You must be a member to post.', 'danger')
-        return redirect(url_for('thread_detail', thread_id=thread_id))
-    
     content = request.form.get('content', '').strip()
     if not content:
         flash('Post cannot be empty.', 'danger')
@@ -240,29 +230,27 @@ def post_in_thread(thread_id):
     flash('Posted!', 'success')
     return redirect(url_for('thread_detail', thread_id=thread_id))
 
-@app.route('/threads/<int:thread_id>/join', methods=['POST'])
+@app.route('/threads/<int:thread_id>/add_member/<int:user_id>', methods=['POST'])
 @login_required
-def join_thread(thread_id):
+def add_member(thread_id, user_id):
     thread = Thread.query.get_or_404(thread_id)
-    if not thread.is_proposal or thread.status != 'open':
-        flash('Cannot join this thread.', 'danger')
+    if thread.leader_id != current_user.id:
+        abort(403)
+    
+    if GroupMembership.query.filter_by(user_id=user_id, thread_id=thread.id).first():
+        flash('User is already a member.', 'info')
         return redirect(url_for('thread_detail', thread_id=thread_id))
     
-    if GroupMembership.query.filter_by(user_id=current_user.id, thread_id=thread.id).first():
-        flash('You are already a member.', 'info')
-        return redirect(url_for('thread_detail', thread_id=thread_id))
-    
-    if db.session.query(GroupMembership).filter_by(thread_id=thread.id).count() >= thread.max_members:
+    if len(thread.memberships) >= thread.max_members:
         flash('Group is full.', 'danger')
         return redirect(url_for('thread_detail', thread_id=thread_id))
     
-    membership = GroupMembership(user_id=current_user.id, thread_id=thread.id, role='member')
+    membership = GroupMembership(user_id=user_id, thread_id=thread.id, role='member')
     db.session.add(membership)
     db.session.commit()
     
-    flash('Joined the proposal!', 'success')
+    flash('Member added to group!', 'success')
     return redirect(url_for('thread_detail', thread_id=thread_id))
-
 
 @app.route('/threads/<int:thread_id>/finalize', methods=['POST'])
 @login_required

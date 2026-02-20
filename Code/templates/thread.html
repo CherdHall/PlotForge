@@ -6,28 +6,12 @@
 <div class="container mt-4">
     <h2>{{ thread.title }}</h2>
     
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <p><strong>Leader:</strong> {{ thread.leader.username }}</p>
-            <p><strong>Status:</strong> {{ thread.status | capitalize }}</p>
-            <p><strong>Members:</strong> {{ thread.memberships|length }} / {{ thread.max_members }}</p>
-        </div>
-        <div class="col-md-4 text-end">
-            {% if current_user.is_authenticated and not is_member and thread.is_proposal and thread.status == 'open' %}
-                <form method="POST" action="{{ url_for('join_thread', thread_id=thread.id) }}">
-                    <button type="submit" class="btn btn-success">Join Proposal</button>
-                </form>
-            {% endif %}
-            {% if is_leader and thread.is_proposal and thread.status == 'open' %}
-                <form method="POST" action="{{ url_for('finalize_thread', thread_id=thread.id) }}">
-                    <button type="submit" class="btn btn-warning">Finalize & Create Workspace</button>
-                </form>
-            {% endif %}
-        </div>
-    </div>
+    <p><strong>Leader:</strong> {{ thread.leader.username }} 
+       <span class="badge bg-primary">Leader</span></p>
+    <p><strong>Members:</strong> {{ thread.memberships|length }} / {{ thread.max_members }}</p>
 
-    <h4>Boundaries</h4>
-    <ul class="list-group list-group-flush mb-4">
+    <h4 class="mt-4">Boundaries</h4>
+    <ul class="list-group mb-4">
         {% if thread.genre %}<li class="list-group-item">Genre: {{ thread.genre.option_text }}</li>{% endif %}
         {% if thread.political %}<li class="list-group-item">Political: {{ thread.political.option_text }}</li>{% endif %}
         {% if thread.violence %}<li class="list-group-item">Violence: {{ thread.violence.option_text }}</li>{% endif %}
@@ -36,41 +20,38 @@
         {% if thread.audience %}<li class="list-group-item">Audience: {{ thread.audience.option_text }}</li>{% endif %}
     </ul>
 
-    <h4>Discussion</h4>
+    <h4>Recruitment Chat — Anyone can post</h4>
     
-    {% if posts %}
-        {% for post in posts %}
-            <div class="card mb-3">
-                <div class="card-header bg-light">
-                    <strong>{{ post.author.username }}</strong> 
-                    <small class="text-muted">• {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">{{ post.content | safe }}</p>
-                </div>
+    {% for post in posts %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <strong>{{ post.author.username }}</strong> 
+                <small class="text-muted">• {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                
+                {% if is_leader and post.user_id != thread.leader_id %}
+                    <form method="POST" action="{{ url_for('add_member', thread_id=thread.id, user_id=post.user_id) }}" 
+                          style="display:inline;">
+                        <button type="submit" class="btn btn-sm btn-success float-end">Add to Group</button>
+                    </form>
+                {% endif %}
             </div>
-        {% endfor %}
-    {% else %}
-        <p class="text-muted">No posts yet. Be the first to write!</p>
-    {% endif %}
+            <div class="card-body">
+                <p>{{ post.content | safe }}</p>
+            </div>
+        </div>
+    {% endfor %}
 
-    {% if current_user.is_authenticated and is_member %}
+    {% if current_user.is_authenticated %}
         <div class="card mt-4">
             <div class="card-body">
                 <form method="POST" action="{{ url_for('post_in_thread', thread_id=thread.id) }}">
-                    <div class="mb-3">
-                        <label for="content" class="form-label">New Post</label>
-                        <textarea name="content" id="content" class="form-control" rows="4" required 
-                                  placeholder="Share your thoughts, ideas, questions..."></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Post</button>
+                    <textarea name="content" class="form-control" rows="4" required placeholder="I'd like to join..."></textarea>
+                    <button type="submit" class="btn btn-primary mt-3">Post Message</button>
                 </form>
             </div>
         </div>
-    {% elif current_user.is_authenticated %}
-        <p class="mt-4 alert alert-info">Join the group to participate in the discussion.</p>
     {% else %}
-        <p class="mt-4 alert alert-info">Log in to join and post.</p>
+        <p class="alert alert-info">Log in to post in the recruitment chat.</p>
     {% endif %}
 </div>
 {% endblock %}
